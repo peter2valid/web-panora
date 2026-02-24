@@ -664,9 +664,8 @@
 
     <!-- A-Frame 3D overlay (transparent, for node spheres) -->
     <div id="aframe-container">
-      <a-scene embedded vr-mode-ui="enabled: false"
-        renderer="alpha: true; antialias: true; clearAlpha: 0; clearColor: #00000000"
-        background="color: transparent; transparent: true" device-orientation-permission-ui="enabled: false"
+      <a-scene embedded vr-mode-ui="enabled: false" renderer="alpha: true; antialias: true"
+        background="transparent: true; color: #00000000" device-orientation-permission-ui="enabled: false"
         style="background: transparent !important;">
         <!-- Camera rig tracks device orientation -->
         <a-entity id="camera-rig">

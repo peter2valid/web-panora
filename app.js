@@ -15,7 +15,7 @@
 // CONFIG
 // ───────────────────────────────────────────────
 const CONFIG = {
-  BACKEND_URL: 'http://localhost:8000',   // ← change for production
+  BACKEND_URL: 'https://web-panora.up.railway.app',  // Railway public URL
   LOCK_THRESHOLD_DEG: 8,                  // degrees within which a node is "hit"
   CAPTURE_WIDTH: 1920,
   CAPTURE_HEIGHT: 1080,
@@ -137,9 +137,7 @@ function buildNodes() {
       const pos = sphericalToCartesian(azimuth, elevation, 4.5);
       el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
       el.setAttribute('radius', '0.12');
-      el.setAttribute('color', '#00ffc8');
-      el.setAttribute('opacity', '0.55');
-      el.setAttribute('material', 'emissive: #00ffc8; emissiveIntensity: 0.4; shader: flat');
+      el.setAttribute('material', 'shader: flat; color: #00ffc8; opacity: 0.55');
       el.dataset.nodeId = node.id;
       nodesRoot.appendChild(el);
       node.el = el;
@@ -636,7 +634,12 @@ btnStart.addEventListener('click', async () => {
       // Remove any default <a-sky> A-Frame may inject
       const sky = scene.querySelector('a-sky, [geometry*="sphere"]');
       if (sky && sky !== scene) sky.parentNode && sky.parentNode.removeChild(sky);
-      // Force canvas transparency via JS (more reliable than CSS on iOS/Android)
+      // Force THREE.js renderer to clear with alpha=0 — this is the real fix on iOS/Android
+      // where CSS transparency alone is ignored by the WebGL compositor
+      if (scene.renderer) {
+        scene.renderer.setClearColor(0x000000, 0);
+      }
+      // Belt-and-suspenders: also set CSS transparency
       const aCanvas = scene.querySelector('canvas');
       if (aCanvas) {
         aCanvas.style.background = 'transparent';
