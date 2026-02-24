@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List
@@ -29,6 +30,9 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 # ─── CONFIG ─────────────────────────────────────────────────────────────────
 BASE_DIR    = Path(__file__).parent
@@ -38,9 +42,11 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 OUTPUTS_DIR.mkdir(exist_ok=True)
 
 STITCH_ENGINE   = os.getenv("STITCH_ENGINE", "opencv")
-MAX_FRAMES      = int(os.getenv("MAX_FRAMES", "60"))        # max frames per session
-MAX_FRAME_BYTES = int(os.getenv("MAX_FRAME_MB", "10")) * 1024 * 1024  # default 10 MB per frame
-STITCH_TIMEOUT  = int(os.getenv("STITCH_TIMEOUT_S", "300")) # 5 min max stitch time
+MAX_FRAMES      = int(os.getenv("MAX_FRAMES", "60"))         # max frames per session
+MAX_FRAME_BYTES = int(os.getenv("MAX_FRAME_MB", "10")) * 1024 * 1024   # default 10 MB per frame
+STITCH_TIMEOUT  = int(os.getenv("STITCH_TIMEOUT_S", "300"))  # 5 min max stitch time
+OUTPUT_TTL_H    = int(os.getenv("OUTPUT_TTL_HOURS", "24"))   # delete panoramas older than this
+RATE_LIMIT      = os.getenv("RATE_LIMIT", "5/minute")        # per-IP stitch rate limit
 
 # Thread pool sized to CPU count — ensures stitching never starves the event loop
 _executor = ThreadPoolExecutor(max_workers=os.cpu_count() or 2)
@@ -51,19 +57,53 @@ log = logging.getLogger("viewora")
 # Per-session lock: prevents two concurrent uploads for the same session
 _session_locks: dict[str, asyncio.Lock] = {}
 
+# Rate limiter keyed by client IP
+limiter = Limiter(key_func=get_remote_address)
+
 
 # ─── APP ─────────────────────────────────────────────────────────────────────
 app = FastAPI(title="Viewora Stitching API", version="2.0.0")
 
+# Attach rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten to your Vercel domain in production
+    allow_origins=[
+        "https://web-panora.vercel.app",    # Vercel production
+        "http://localhost:3000",            # local dev
+    ],
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
 
 # Serve finished panoramas as static files
 app.mount("/outputs", StaticFiles(directory=str(OUTPUTS_DIR)), name="outputs")
+
+
+# ─── BACKGROUND CLEANUP ──────────────────────────────────────────────────────
+async def _cleanup_old_outputs() -> None:
+    """Delete panoramas older than OUTPUT_TTL_H hours. Runs every hour."""
+    while True:
+        await asyncio.sleep(3600)  # wait 1 hour before first run
+        cutoff = time.time() - OUTPUT_TTL_H * 3600
+        deleted = 0
+        for f in OUTPUTS_DIR.glob("*.jpg"):
+            try:
+                if f.stat().st_mtime < cutoff:
+                    f.unlink()
+                    deleted += 1
+            except OSError:
+                pass
+        if deleted:
+            log.info(f"[cleanup] Deleted {deleted} panorama(s) older than {OUTPUT_TTL_H}h")
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    asyncio.create_task(_cleanup_old_outputs())
+    log.info(f"Viewora API started — engine={STITCH_ENGINE}, rate_limit={RATE_LIMIT}, output_ttl={OUTPUT_TTL_H}h")
 
 
 # ─── VALIDATION ──────────────────────────────────────────────────────────────
@@ -83,6 +123,7 @@ async def health():
 
 
 @app.post("/stitch")
+@limiter.limit(RATE_LIMIT)
 async def stitch_session(
     request: Request,
     session_id: str = Form(...),
