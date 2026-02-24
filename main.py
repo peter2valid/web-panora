@@ -71,7 +71,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://web-panora.vercel.app",    # Vercel production
+        "https://viewora20.vercel.app",      # Vercel production
         "http://localhost:3000",            # local dev
     ],
     allow_methods=["POST", "GET"],
