@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  # ── Python Stitching Backend ──────────────────────────
+  backend:
+    build:
+      context: . # root — Dockerfile + main.py are here
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads # persists captured frames locally
+      - ./outputs:/app/outputs # persists stitched panoramas
+    environment:
+      - STITCH_ENGINE=opencv # change to "hugin" for professional results
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Static Frontend (dev only — use Vercel for prod) ──
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - .:/usr/share/nginx/html:ro # serve index.html + app.js from root
+    depends_on:
+      - backend
+    restart: unless-stopped

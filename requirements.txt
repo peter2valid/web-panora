@@ -1,0 +1,6 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+gunicorn==22.0.0               # multi-worker process manager for production
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+python-multipart==0.0.9        # required for FastAPI Form + File uploads

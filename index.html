@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>Viewora — 360° Capture</title>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
+  <!-- Pannellum for viewer -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pannellum/2.5.6/pannellum.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pannellum/2.5.6/pannellum.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --acid: #00ffc8;
+      --danger: #ff3c5f;
+      --warn: #ffcc00;
+      --bg: #040810;
+      --glass: rgba(0, 255, 200, 0.06);
+      --border: rgba(0, 255, 200, 0.18);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--acid);
+      height: 100dvh;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ─── SCREENS ─── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      transition: opacity 0.4s, transform 0.4s;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.97);
+    }
+
+    /* ─── LAUNCH SCREEN ─── */
+    #screen-launch {
+      background: var(--bg);
+      gap: 2rem;
+      padding: 2rem;
+    }
+
+    .logo-mark {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(2.8rem, 10vw, 5rem);
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      background: linear-gradient(135deg, var(--acid) 30%, #00aaff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: none;
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+
+      0%,
+      100% {
+        filter: drop-shadow(0 0 6px rgba(0, 255, 200, 0.4));
+      }
+
+      50% {
+        filter: drop-shadow(0 0 20px rgba(0, 255, 200, 0.8));
+      }
+    }
+
+    .tagline {
+      font-size: 0.8rem;
+      letter-spacing: 0.2em;
+      opacity: 0.55;
+      text-transform: uppercase;
+    }
+
+    .orb-preview {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: radial-gradient(circle at 35% 35%, rgba(0, 255, 200, 0.15), transparent 70%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      animation: orb-spin 8s linear infinite;
+    }
+
+    @keyframes orb-spin {
+      from {
+        box-shadow: 0 0 0 1px var(--border), 0 0 30px rgba(0, 255, 200, 0.1);
+      }
+
+      50% {
+        box-shadow: 0 0 0 1px var(--acid), 0 0 50px rgba(0, 255, 200, 0.2);
+      }
+
+      to {
+        box-shadow: 0 0 0 1px var(--border), 0 0 30px rgba(0, 255, 200, 0.1);
+      }
+    }
+
+    .orb-inner-ring {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 1px dashed rgba(0, 255, 200, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: orb-counter 8s linear infinite reverse;
+    }
+
+    @keyframes orb-counter {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .orb-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--acid);
+      box-shadow: 0 0 12px var(--acid);
+    }
+
+    .btn-primary {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      letter-spacing: 0.15em;
+      padding: 0.9rem 2.5rem;
+      background: transparent;
+      color: var(--acid);
+      border: 1px solid var(--acid);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: color 0.2s;
+      clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--acid);
+      transform: translateX(-105%);
+      transition: transform 0.25s ease;
+    }
+
+    .btn-primary:hover::before {
+      transform: translateX(0);
+    }
+
+    .btn-primary:hover {
+      color: var(--bg);
+    }
+
+    .btn-primary span {
+      position: relative;
+      z-index: 1;
+    }
+
+    .https-note {
+      font-size: 0.68rem;
+      opacity: 0.4;
+      text-align: center;
+      max-width: 260px;
+      line-height: 1.6;
+    }
+
+    .https-note strong {
+      color: var(--warn);
+      opacity: 1;
+    }
+
+    /* ─── CAPTURE SCREEN ─── */
+    #screen-capture {
+      background: transparent;
+    }
+
+    #aframe-container {
+      display: none;
+      /* hidden until capture starts — prevents white canvas on mobile */
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      background: transparent;
+      /* must be transparent — camera feed shows through */
+      pointer-events: none;
+      /* HUD and A-Frame nodes don't block camera touch/tap */
+    }
+
+    #aframe-container a-scene {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+
+    /* Force A-Frame's injected canvas to stay transparent on mobile */
+    #aframe-container canvas {
+      background: transparent !important;
+    }
+
+    /* A-Frame injects a white <a-scene> background — override it */
+    a-scene .a-canvas {
+      background-color: transparent !important;
+    }
+
+    /* Camera feed behind A-Frame */
+    #camera-feed {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      /* mirror front cam; remove for rear cam */
+    }
+
+    /* HUD Layer */
+    #hud {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    /* Crosshair */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60px;
+      height: 60px;
+    }
+
+    #crosshair svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    #crosshair.locked svg .ring {
+      stroke: var(--acid);
+      animation: lock-pulse 0.4s ease-out 3;
+    }
+
+    #crosshair.locked svg .dot {
+      fill: var(--acid);
+    }
+
+    @keyframes lock-pulse {
+
+      0%,
+      100% {
+        r: 22;
+        opacity: 1;
+      }
+
+      50% {
+        r: 30;
+        opacity: 0.4;
+      }
+    }
+
+    /* Node status bar */
+    #status-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: env(safe-area-inset-top, 12px) 20px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(4, 8, 16, 0.9), transparent);
+    }
+
+    #session-id {
+      font-size: 0.65rem;
+      opacity: 0.4;
+      letter-spacing: 0.12em;
+    }
+
+    /* Live sensor telemetry readout */
+    #sensor-hud {
+      font-size: 0.6rem;
+      opacity: 0.55;
+      letter-spacing: 0.08em;
+      color: rgba(0, 255, 200, 0.5);
+      text-align: center;
+      flex: 1;
+      /* sits between session-id and counter */
+    }
+
+    #capture-counter {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      color: var(--acid);
+    }
+
+    #capture-counter .total {
+      opacity: 0.4;
+    }
+
+    /* Node grid map (mini sphere map) */
+    #node-map {
+      position: absolute;
+      bottom: 130px;
+      right: 20px;
+      width: 90px;
+      height: 90px;
+    }
+
+    #node-map svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Bottom action bar */
+    #action-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px 24px calc(env(safe-area-inset-bottom, 16px) + 16px);
+      background: linear-gradient(to top, rgba(4, 8, 16, 0.95), transparent);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      pointer-events: all;
+    }
+
+    #progress-wrap {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #progress-track {
+      flex: 1;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      position: relative;
+      overflow: visible;
+    }
+
+    #progress-fill {
+      height: 100%;
+      background: var(--acid);
+      transition: width 0.4s ease;
+      box-shadow: 0 0 8px var(--acid);
+    }
+
+    #progress-pct {
+      font-size: 0.75rem;
+      opacity: 0.6;
+      min-width: 34px;
+      text-align: right;
+    }
+
+    #guidance-text {
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      opacity: 0.7;
+      text-align: center;
+      min-height: 1.2em;
+      transition: opacity 0.3s;
+    }
+
+    #guidance-text.highlight {
+      color: var(--acid);
+      opacity: 1;
+      animation: text-flash 0.3s;
+    }
+
+    @keyframes text-flash {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.2;
+      }
+    }
+
+    #btn-upload {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      padding: 0.75rem 2rem;
+      background: var(--acid);
+      color: var(--bg);
+      border: none;
+      cursor: pointer;
+      display: none;
+      clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    #btn-upload:active {
+      transform: scale(0.97);
+    }
+
+    #btn-upload.visible {
+      display: block;
+    }
+
+    /* Manual tap-to-capture button — shown only when crosshair is locked */
+    #btn-tap-capture {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      padding: 0.7rem 2rem;
+      background: transparent;
+      color: var(--acid);
+      border: 1px solid var(--acid);
+      cursor: pointer;
+      display: none;
+      clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+      transition: background 0.15s, color 0.15s;
+      animation: tap-pulse 0.8s ease-in-out infinite;
+    }
+
+    #btn-tap-capture:active {
+      background: var(--acid);
+      color: var(--bg);
+    }
+
+    #btn-tap-capture.visible {
+      display: block;
+    }
+
+    @keyframes tap-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 200, 0.4);
+      }
+
+      50% {
+        box-shadow: 0 0 0 6px rgba(0, 255, 200, 0);
+      }
+    }
+
+    /* Flash effect on capture */
+    #capture-flash {
+      position: fixed;
+      inset: 0;
+      z-index: 99;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.05s;
+    }
+
+    #capture-flash.flash {
+      opacity: 0.7;
+      transition: opacity 0.05s;
+    }
+
+    /* ─── PROCESSING SCREEN ─── */
+    #screen-processing {
+      background: var(--bg);
+      gap: 2rem;
+      padding: 2rem;
+    }
+
+    .proc-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 0.1em;
+    }
+
+    .proc-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-width: 260px;
+    }
+
+    .proc-step {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      opacity: 0.4;
+      transition: opacity 0.3s, color 0.3s;
+    }
+
+    .proc-step.active {
+      opacity: 1;
+      color: var(--acid);
+    }
+
+    .proc-step.done {
+      opacity: 0.6;
+      color: #00aaff;
+    }
+
+    .proc-step .step-icon {
+      font-size: 0.9rem;
+      width: 1.2rem;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 2px solid var(--border);
+      border-top-color: var(--acid);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ─── VIEWER SCREEN ─── */
+    #screen-viewer {
+      background: var(--bg);
+    }
+
+    #pannellum-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    #viewer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      padding: env(safe-area-inset-top, 12px) 20px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(4, 8, 16, 0.85), transparent);
+    }
+
+    #viewer-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+    }
+
+    #btn-new-capture {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      padding: 0.5rem 1.2rem;
+      background: transparent;
+      color: var(--acid);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    #btn-new-capture:hover {
+      border-color: var(--acid);
+    }
+
+    /* ─── ERROR TOAST ─── */
+    #toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 60, 95, 0.15);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      padding: 0.6rem 1.2rem;
+      z-index: 200;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+      white-space: nowrap;
+    }
+
+    #toast.show {
+      opacity: 1;
+    }
+
+    /* Hidden canvas for frame capture */
+    #capture-canvas {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══ SCREEN: LAUNCH ═══ -->
+  <div class="screen" id="screen-launch">
+    <div class="logo-mark">VIEWORA</div>
+    <div class="tagline">360° Capture System</div>
+    <div class="orb-preview">
+      <div class="orb-inner-ring">
+        <div class="orb-dot"></div>
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-start">
+      <span>▶ &nbsp;INIT CAPTURE</span>
+    </button>
+    <p class="https-note">
+      Requires <strong>HTTPS</strong> + gyroscope &amp; camera permissions.<br />
+      Point your phone's rear camera at the scene.
+    </p>
+  </div>
+
+  <!-- ═══ SCREEN: CAPTURE ═══ -->
+  <div class="screen hidden" id="screen-capture">
+
+    <!-- Camera feed background -- note: aframe-container starts display:none, shown by JS -->
+    <video id="camera-feed" autoplay playsinline muted></video>
+
+    <!-- A-Frame 3D overlay (transparent, for node spheres) -->
+    <div id="aframe-container">
+      <a-scene embedded vr-mode-ui="enabled: false"
+        renderer="alpha: true; antialias: true; clearAlpha: 0; clearColor: #00000000"
+        background="color: transparent; transparent: true" device-orientation-permission-ui="enabled: false"
+        style="background: transparent !important;">
+        <!-- Camera rig tracks device orientation -->
+        <a-entity id="camera-rig">
+          <a-camera id="main-camera"
+            look-controls="magicWindowTrackingEnabled: true; pointerLockEnabled: false; touchEnabled: false"
+            wasd-controls="enabled: false" fov="75"></a-camera>
+
+        </a-entity>
+
+        <!-- Capture nodes injected here by JS -->
+        <a-entity id="nodes-root"></a-entity>
+
+        <!-- Visual equator ring guide -->
+        <a-torus radius="4.5" radius-tubular="0.008" color="#00ffc8" opacity="0.12" rotation="90 0 0"></a-torus>
+        <!-- Vertical meridian ring -->
+        <a-torus radius="4.5" radius-tubular="0.008" color="#00ffc8" opacity="0.08" rotation="0 0 0"></a-torus>
+      </a-scene>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+      <!-- Top bar -->
+      <div id="status-bar">
+        <div id="session-id">SESSION: --</div>
+        <div id="sensor-hud">α-- β-- γ--</div>
+        <div id="capture-counter">
+          <span id="count-done">0</span>
+          <span class="total"> / <span id="count-total">--</span></span>
+        </div>
+      </div>
+
+      <!-- Crosshair -->
+      <div id="crosshair">
+        <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle class="ring" cx="30" cy="30" r="22" stroke="#00ffc8" stroke-width="1.5" stroke-dasharray="4 3"
+            opacity="0.6" />
+          <circle cx="30" cy="30" r="14" stroke="#00ffc8" stroke-width="1" opacity="0.4" />
+          <line x1="30" y1="10" x2="30" y2="20" stroke="#00ffc8" stroke-width="1.5" />
+          <line x1="30" y1="40" x2="30" y2="50" stroke="#00ffc8" stroke-width="1.5" />
+          <line x1="10" y1="30" x2="20" y2="30" stroke="#00ffc8" stroke-width="1.5" />
+          <line x1="40" y1="30" x2="50" y2="30" stroke="#00ffc8" stroke-width="1.5" />
+          <circle class="dot" cx="30" cy="30" r="2.5" fill="#00ffc8" opacity="0.8" />
+        </svg>
+      </div>
+
+      <!-- Mini node-map (top-down 2D projection) -->
+      <div id="node-map">
+        <svg id="node-map-svg" viewBox="0 0 90 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="45" cy="45" r="40" stroke="rgba(0,255,200,0.15)" stroke-width="1" />
+          <circle cx="45" cy="45" r="25" stroke="rgba(0,255,200,0.1)" stroke-width="1" stroke-dasharray="3 3" />
+          <!-- Dots injected by JS -->
+        </svg>
+      </div>
+
+      <!-- Bottom action bar -->
+      <div id="action-bar">
+        <div id="progress-wrap">
+          <div id="progress-track">
+            <div id="progress-fill" style="width:0%"></div>
+          </div>
+          <div id="progress-pct">0%</div>
+        </div>
+        <div id="guidance-text">ALIGN CROSSHAIR WITH A HIGHLIGHTED NODE</div>
+        <button id="btn-tap-capture">⊕ TAP TO CAPTURE</button>
+        <button id="btn-upload">⬆ &nbsp;PROCESS 360°</button>
+      </div>
+    </div>
+
+    <!-- Flash -->
+    <div id="capture-flash"></div>
+  </div>
+
+  <!-- ═══ SCREEN: PROCESSING ═══ -->
+  <div class="screen hidden" id="screen-processing">
+    <div class="spinner"></div>
+    <div class="proc-title">STITCHING 360°</div>
+    <div class="proc-steps">
+      <div class="proc-step active" id="step-upload">
+        <span class="step-icon">⬆</span> Uploading frames to server
+      </div>
+      <div class="proc-step" id="step-detect">
+        <span class="step-icon">⬡</span> Detecting keypoints (OpenCV / Hugin)
+      </div>
+      <div class="proc-step" id="step-stitch">
+        <span class="step-icon">⬢</span> Stitching equirectangular map
+      </div>
+      <div class="proc-step" id="step-done">
+        <span class="step-icon">✓</span> Finalising output
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN: VIEWER ═══ -->
+  <div class="screen hidden" id="screen-viewer">
+    <div id="pannellum-container"></div>
+    <div id="viewer-overlay">
+      <div id="viewer-title">VIEWORA — 360° VIEW</div>
+      <button id="btn-new-capture">+ NEW CAPTURE</button>
+    </div>
+  </div>
+
+  <!-- Error toast -->
+  <div id="toast"></div>
+
+  <!-- Hidden canvas for frame snapshots -->
+  <canvas id="capture-canvas"></canvas>
+
+  <script src="/app.js"></script>
+</body>
+
+</html>
